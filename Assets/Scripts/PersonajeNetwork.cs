@@ -7,8 +7,14 @@ using FishNet.Connection;
 
 public class PersonajeNetwork : NetworkBehaviour
 {
-    readonly SyncVar<Color> myColor = new SyncVar<Color>();
-    readonly SyncVar<GameObject> target = new SyncVar<GameObject>();
+    public static PersonajeNetwork Instance;
+
+    public int scores;
+
+    public readonly SyncVar<int> score = new SyncVar<int>();
+
+    //readonly SyncVar<Color> myColor = new SyncVar<Color>();
+    //readonly SyncVar<GameObject> target = new SyncVar<GameObject>();
 
     //List, hashset, dictionary
     readonly SyncList<int> myList = new SyncList<int>(); // List<int>
@@ -62,8 +68,15 @@ public class PersonajeNetwork : NetworkBehaviour
 
     void Awake()
     {
-        myColor.OnChange += miColorChange;
+        Instance = this;
+        //myColor.OnChange += miColorChange;
         myList.OnChange += MyListChange;
+        //score.OnChange += scoreChange;
+    }
+
+    private void OnScoreChange(int oldValue, int newValue, bool asServer)
+    {
+        score.Value = newValue;
     }
 
     void MyListChange(SyncListOperation op, int index, int oldValue, int newValue, bool asServer)
@@ -108,13 +121,14 @@ public class PersonajeNetwork : NetworkBehaviour
 
     // [SYNC] myList.Add(10); myList.Add(15); myList.Remove(0); [SYNC]
 
+    /*
     [ServerRpc] //una funcion que se ejecuta en el servidor
     void CambiarColorServerRPC()
     {
         myColor.Value = Random.ColorHSV();
         print("Se cambio a color: " + myColor.Value);
 
-    }
+    }*/
 
     // requiere Ownership = puede llamar esta funcion en gameObjects que no me pertenecen
 
@@ -133,18 +147,29 @@ public class PersonajeNetwork : NetworkBehaviour
 
     }
 
+    /*
+    void scoreChange(int before, int next, bool asServer) //next == miColor.Value
+    {
+        score.Value = next;
+    }*/
+    /*
     void miColorChange(Color before, Color next, bool asServer) //next == miColor.Value
     {
         GetComponent<MeshRenderer>().material.color = next;
-    }
+    }*/
+
+    public Sprite partnerShip;
 
     public override void OnStartNetwork() //Start para que sincronice
     {
-        if (Owner.IsLocalClient)
+        if (Owner.IsLocalClient == false)
         {
             name += "(local)";
-            GetComponent<MeshRenderer>().material.color = Color.green;
+            //GetComponentInChildren<SpriteRenderer>().color = Color.green;
+            GetComponentInChildren<SpriteRenderer>().sprite = partnerShip;
         }
+        scores = 0;
+        score.Value = 0;
     }
 
     [ObserversRpc]
@@ -164,11 +189,14 @@ public class PersonajeNetwork : NetworkBehaviour
     {
         if (IsOwner == false) return;
 
-        if (Input.GetKeyDown(KeyCode.C))
+        if (scores <= 0)
         {
-            print("se presiono la tecla C - color actual " + myColor.Value);
-            CambiarColorServerRPC();
-            print("Color despues de mandar mensaje al servidor: " + myColor.Value);
+            scores = 0;
+        }
+
+        if (score.Value <= 0)
+        {
+            score.Value = 0;
         }
 
         if (Input.GetKeyDown(KeyCode.V))
@@ -176,26 +204,49 @@ public class PersonajeNetwork : NetworkBehaviour
             CambiarColorServerRPC2();
         }
 
-        Vector3 moveInput = new Vector3(Input.GetAxis("Horizontal"), 0f, Input.GetAxis("Vertical"));
-        transform.Translate(moveInput * Time.deltaTime * 3f);
+        Vector3 moveInput = new Vector3(Input.GetAxis("Horizontal"), Input.GetAxis("Vertical"), 0f);
+        transform.Translate(moveInput * Time.deltaTime * 8f);
     }
+
+    //readonly SyncVar<int> score = new SyncVar<int>();
+    
 
     private void OnTriggerEnter(Collider other)
     {
         if (!IsServerStarted) return; //para que solo el servidor pueda confirmar la accion, aqui se puede poner un feedback al usuario
 
+        
         if(other.CompareTag("Enemy"))
         {
             Despawn(other.gameObject);
+            ReduceScore(Owner);
             // Owner // -Para saber de que jugador se esta hablando/realizando la accion
 
-            EquipWeaponRPC(Owner);
+            //EquipWeaponRPC(Owner);
+        }
+
+        if(other.CompareTag("Item"))
+        {
+            Despawn(other.gameObject);
+            GetScore(Owner);
         }
     }
 
     [TargetRpc]
-    void EquipWeaponRPC(NetworkConnection conn)
+    void ReduceScore(NetworkConnection conn)
     {
-        print("Weapon equipped");
+        score.Value--;
+        //GainScore();
+        scores--;
+        print(scores);
+    }
+
+    [TargetRpc]
+    void GetScore(NetworkConnection conn)
+    {
+        score.Value++;
+        //GainScore();
+        scores++;
+        print(scores);
     }
 }

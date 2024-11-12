@@ -6,14 +6,6 @@ using FishNet.Object.Synchronizing;
 
 public class Bullet : NetworkBehaviour 
 {
-    float timeToDestroy = 5f;
-    //public readonly SyncVar<int> ownerId; // Id de quien dispaa
-
-    [Server]
-    private void Update()
-    {
-        timeToDestroy -= Time.deltaTime;
-        if (timeToDestroy <= 0)
-            Despawn(gameObject);
-    }
+    //float timeToDestroy = 5f;
+    public readonly SyncVar<int> ownerId= new SyncVar<int>(); // Id de quien dispaa
 }
